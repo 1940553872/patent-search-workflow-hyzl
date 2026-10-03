@@ -16,7 +16,7 @@ def main(argv=None):
         p.add_argument("--request", required=True, help="JSON 请求文件")
     sub.add_parser("list")
     sub.add_parser("test", help="执行正式规则与整流程验收")
-    for name in ("show", "advance", "packet", "prompts", "ingest-pdfs", "export", "trace", "evidence"):
+    for name in ("show", "advance", "packet", "queries", "prompts", "ingest-pdfs", "export", "trace", "evidence"):
         p = sub.add_parser(name)
         p.add_argument("run_id")
     p = sub.add_parser("submit")
@@ -30,6 +30,13 @@ def main(argv=None):
     p.add_argument("--status", default="complete", choices=["complete", "zero", "truncated", "failed", "rate_limited", "timeout", "denied", "unsupported"])
     p.add_argument("--page", type=int, default=1)
     p.add_argument("--note", default="")
+    p.add_argument("--actual-query", help="页面实际采用的检索式")
+    p.add_argument("--total-hits", type=int, help="页面结果总数，按公开文本计")
+    p.add_argument("--searched-at", help="实际检索日期 YYYY-MM-DD")
+    p = sub.add_parser("replan", help="保留历史记录，重编普通检索计划")
+    p.add_argument("run_id")
+    p.add_argument("--reason", required=True)
+    p.add_argument("--by", required=True)
     p = sub.add_parser("confirm")
     p.add_argument("run_id")
     p.add_argument("gate", choices=["spec", "export"])
@@ -89,7 +96,10 @@ def main(argv=None):
         elif cmd == "submit":
             result = workflow.submit(args.run_id, args.stage, read_json(args.file))
         elif cmd == "import":
-            result = workflow.import_file(args.run_id, args.file, args.query, args.status, args.page, args.note)
+            execution = {k: v for k, v in {"actual_query": args.actual_query, "total_hits": args.total_hits, "searched_at": args.searched_at}.items() if v is not None}
+            result = workflow.import_file(args.run_id, args.file, args.query, args.status, args.page, args.note, execution)
+        elif cmd == "replan":
+            result = workflow.replan(args.run_id, args.reason, args.by)
         elif cmd == "confirm":
             result = workflow.confirm(args.run_id, args.gate, args.by)
         elif cmd == "confirm-pdf":

@@ -142,8 +142,8 @@ class SkillOutputRegressionTests(unittest.TestCase):
             validate("match", {"items": [item]})
 
     def test_plan_gap_and_review_realistic_outputs_fit_the_shared_contracts(self):
-        query = {"qid": "Q2", "query": "电压突降 AND 气体检测",
-                 "prompt": "检索电压突降与气体检测联合报警的公开文献，列出公开号、公开日和实际检索式；未知字段留空。",
+        query = {"qid": "Q2", "query": 'TACD_ALL:("电压突降" AND "气体检测") AND AUTHORITY:(CN)',
+                 "purpose": "电压突降与气体检测联合报警候选。", "search_mode": "expert",
                  "fids": ["F2", "F3"], "required": True, "source": "patsnap_web"}
         validate("query_plan", {"queries": [query]})
         validate("gap", {"action": "evidence", "reason": "该候选只有摘要，需要对应 A 公开文本的完整 PDF。",

@@ -25,9 +25,12 @@
             "type": "string",
             "minLength": 1
           },
-          "prompt": {
+          "purpose": {
             "type": "string",
             "minLength": 1
+          },
+          "search_mode": {
+            "enum": ["expert"]
           },
           "fids": {
             "type": "array",
@@ -75,7 +78,8 @@
         "required": [
           "qid",
           "query",
-          "prompt",
+          "purpose",
+          "search_mode",
           "fids",
           "required",
           "source"
