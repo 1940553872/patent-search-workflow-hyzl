@@ -1,10 +1,19 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "sources": {
     "patsnap_web": {
       "transport": "manual_import",
       "authentication": "用户已有智慧芽账号，仅在官网登录",
-      "agent_prompt": true,
+      "agent_prompt": false,
+      "search_modes": ["expert", "field", "simple"],
+      "default_search_mode": "expert",
+      "query_fields": ["TACD_ALL", "TACD", "TAC_ALL", "TAC", "TA_ALL", "TA", "TTL_ALL", "TTL", "ABST_ALL", "ABST", "CLMS_ALL", "CLMS", "DESC_ALL", "DESC", "PN", "AUTHORITY", "IPC", "CPC"],
+      "query_operators": ["AND", "OR", "NOT"],
+      "syntax_sources": [
+        "https://help.patsnap.com/hc/en-us/articles/212268765-Searching-in-Patsnap-101",
+        "https://help.patsnap.com/hc/en-us/articles/206757559-Searching-for-Patent-Translations-in-Patsnap",
+        "https://help.patsnap.com/hc/en-us/articles/115005456725-Field-Search-101"
+      ],
       "api": false,
       "automated_browser": false,
       "formats": ["csv", "xlsx", "json"],

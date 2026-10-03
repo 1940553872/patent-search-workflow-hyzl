@@ -85,8 +85,8 @@ class WorkflowAcceptance(unittest.TestCase):
             self.assertEqual(run["status"], "WAITING_HUMAN")
             run = self.w.confirm(rid, "spec", "验收员")
         self.assertEqual(run["stage"], "PLAN")
-        run = self.submit(rid, {"queries": [{"qid": "Q1", "query": "battery AND gas sensor",
-                                            "prompt": "检索同时涉及电池气体检测与电压检测的专利，保留完整公开号。",
+        run = self.submit(rid, {"queries": [{"qid": "Q1", "query": 'TACD_ALL:(battery AND "gas sensor") AND AUTHORITY:(CN)',
+                                            "purpose": "电池气体检测与电压检测候选。", "search_mode": "expert",
                                             "fids": list(QUOTES) if hard_features else [],
                                             "required": True, "source": "patsnap_web"}]})
         self.assertEqual(run["status"], "WAITING_IMPORT")
@@ -384,8 +384,8 @@ class WorkflowAcceptance(unittest.TestCase):
             self.assertEqual(run["round"], number)
             self.assertEqual(run["queries"], before)
             self.assertEqual(self.w.packet(rid)["input"]["gap_request"], gap)
-            query = {"qid": f"Q{number + 1}", "query": f"battery AND gas detector term{number}",
-                     "prompt": f"补充检索气体检测技术，第 {number} 轮。", "fids": ["F1"],
+            query = {"qid": f"Q{number + 1}", 'query': f'TACD_ALL:(battery AND "gas detector" AND term{number}) AND AUTHORITY:(CN)',
+                     "purpose": f"气体检测补检，第 {number} 轮。", "search_mode": "expert", "fids": ["F1"],
                      "required": True, "source": "patsnap_web"}
             if number == 1:
                 duplicate = {**query, "qid": "Q1"}

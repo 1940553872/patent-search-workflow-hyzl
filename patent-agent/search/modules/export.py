@@ -54,7 +54,8 @@ def build_export(run, review_targets, missing_materials):
     required = [q for q in run["queries"] if q["required"]]
     executed = [q for q in required if q["status"] in ("complete", "zero")]
     coverage = len(executed) == len(required) and not run["force_partial"] and not run["budget_exhausted"]
-    needs_import = [{"query_id": q["qid"], "query": q["query"], "prompt": q["prompt"], "status": q["status"],
+    needs_import = [{"query_id": q["qid"], "query": q["query"], "purpose": q.get("purpose", "旧计划待重编"),
+                     "search_mode": q.get("search_mode", "legacy_agent"), "status": q["status"],
                      "fields": ["公开号", "申请号", "申请日", "优先权日", "公开日", "法律状态", "法律状态日期", "摘要"]}
                     for q in required if q["status"] not in ("complete", "zero")]
     if missing_materials:
@@ -99,7 +100,7 @@ def build_export(run, review_targets, missing_materials):
     return {"request": {**run["request"], "features": spec["features"], "base_date": spec["base_date"]},
             "query_id": run["run_id"], "snapshot": run["snapshot"], "docs": docs, "counts": counts, "funnel": funnel,
             "scope": {"sources": sorted({q["source"] for q in run["queries"]}), "queries": run["queries"],
-                      "collection": "用户在智慧芽官网执行检索，程序导入导出文件；未调用数据库 API",
+                      "collection": "用户在智慧芽官网手动执行查询，程序导入导出文件；实际检索式与执行方式按逐查询记录追溯；未调用数据库 API",
                       "snapshot_note": "snapshot 为本地任务快照日期，各批次实际导入时间见 batches.at；源库更新延迟未知",
                       "truncated": any(q["status"] == "truncated" for q in run["queries"]) or omitted > 0,
                       "batches": run["batches"], "blind_spot": blind, "read_scope": spec["read_scope"],
@@ -158,8 +159,8 @@ def render_report(evidence):
             pieces.append(f"<p><b>{e(cell.get('fid'))} · Agent 状态：{e(cell.get('state'))}</b> · 程序核验：{e(cell.get('value'))} · {e(cell.get('loc'))}，PDF 第 {e(cell.get('page'))} 页</p><blockquote>{e(cell.get('quote'))}</blockquote><p>{e('；'.join(cell.get('issues', [])))}</p>")
         pieces.append(f"<p>判定说明：{e(doc.get('decision', {}).get('reasons', []))}</p><p>复核：{e(doc.get('review'))}</p></article>")
     pieces.append("<h2>待处理事项</h2><ul>" + "".join(f"<li>{e(s)}</li>" for s in evidence["needs_human"]) + "</ul>")
-    pieces.append("<h2>实际查询</h2><table><tr><th>编号</th><th>检索式</th><th>执行状态</th></tr>")
+    pieces.append("<h2>查询与执行记录</h2><table><tr><th>编号</th><th>计划检索式</th><th>实际执行式</th><th>结果总数 / 已导入</th><th>执行状态</th></tr>")
     for q in evidence["scope"]["queries"]:
-        pieces.append(f"<tr><td>{e(q['qid'])}</td><td>{e(q['query'])}</td><td>{e(q['status'])}</td></tr>")
+        pieces.append(f"<tr><td>{e(q['qid'])}</td><td>{e(q['query'])}</td><td>{e(q.get('actual_query'))}</td><td>{e(q.get('total_hits'))} / {e(q.get('imported_unique'))}</td><td>{e(q['status'])}</td></tr>")
     pieces.append("</table><p><small>完整原始来源、证据和程序版本见同目录 evidence.json；运行记录见 trace.json。</small></p></html>")
     return "\n".join(pieces)

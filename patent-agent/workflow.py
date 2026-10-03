@@ -15,6 +15,7 @@ from shared.storage import APP, PROJECT, Store, digest, encode, now
 from search.modules.normalize import normalize_record, merge_records
 from search.modules.retrieve import read_export
 from search.modules.documents import extract_pdf
+from search.modules.queries import validate_query, collection_instructions
 
 filter_module = importlib.import_module("search.modules.filter")
 match_module = importlib.import_module("search.modules.match")
@@ -82,8 +83,8 @@ class Workflow:
                            "keys": req["keys"], "features": [], "hard": {"op": "AND", "args": []}, "soft": [], "needs_human": []}
             run["stage"] = "RETRIEVE"
             run["status"] = "WAITING_IMPORT"
-            run["queries"] = [{"qid": "Qlookup", "query": " OR ".join(req["keys"]),
-                                "prompt": "请按完整公开号逐篇查找：" + "、".join(req["keys"]) + "。保留公开文本种类码，导出著录、法律状态及数据日期，并下载全文 PDF。",
+            run["queries"] = [{"qid": "Qlookup", "query": "PN:(" + " OR ".join(req["keys"]) + ")",
+                                "purpose": "按完整公开号取文献；A/B 文本分别保留，导出著录并取得请求的 PDF。", "search_mode": "expert",
                                 "fids": [], "required": True, "source": "patsnap_web", "round": 0, "status": "pending"}]
         self.store.save(run, "CREATE", {"request": req, "config": config, "versions": run["versions"]}, new=True)
         return self.view(rid)
@@ -140,13 +141,14 @@ class Workflow:
         old = {q["qid"] for q in run["queries"]}
         fids = {f["fid"] for f in run["spec"]["features"]}
         for q in queries:
+            validate_query(q)
             if q["qid"] in old:
                 raise ContractError(f"查询编号重复：{q['qid']}")
             old.add(q["qid"])
             self._ensure_egress(run, "sources", q["source"])
             if set(q["fids"]) - fids:
                 raise ContractError("查询引用了规格中不存在的特征")
-            codes = re.findall(r"\b[A-HY]\d{2}[A-Z]\s*\d*(?:/\d+)?", q["query"] + " " + q["prompt"])
+            codes = re.findall(r"\b[A-HY]\d{2}[A-Z]\s*\d*(?:/\d+)?", q["query"] + " " + q["purpose"])
             verified = {re.sub(r"\s", "", c["code"]).upper() for c in q.get("classifications", [])}
             if any(re.sub(r"\s", "", c).upper() not in verified for c in codes):
                 raise ContractError("检索式中的 IPC/CPC 分类号必须附官方名称和核对来源")
@@ -357,7 +359,7 @@ class Workflow:
         self.store.save(run, "HUMAN_CONFIRM", {"gate": gate, "by": by})
         return self.view(rid)
 
-    def import_file(self, rid, path=None, query="", status="complete", page=1, note=""):
+    def import_file(self, rid, path=None, query="", status="complete", page=1, note="", execution=None):
         run = self.store.load(rid)
         started = time.monotonic()
         if run["status"] in ("DONE", "STOPPED"):
@@ -367,6 +369,24 @@ class Workflow:
         q = next((q for q in run["queries"] if q["qid"] == query), None)
         if not q:
             raise ContractError("导入必须关联已有查询编号")
+        if q["status"] == "superseded":
+            raise ContractError("该查询已替代，请使用当前计划的查询编号")
+        execution = execution or {}
+        if not isinstance(execution, dict) or set(execution) - {"actual_query", "total_hits", "searched_at"}:
+            raise ContractError("执行记录只接受 actual_query、total_hits、searched_at")
+        if "actual_query" in execution:
+            if not isinstance(execution["actual_query"], str) or not execution["actual_query"].strip():
+                raise ContractError("实际检索式不能为空")
+            if q.get("actual_query") and execution["actual_query"] != q["actual_query"]:
+                raise ContractError("实际检索式已改变，应重编计划并使用新查询编号")
+        if "total_hits" in execution and (not isinstance(execution["total_hits"], int) or isinstance(execution["total_hits"], bool) or execution["total_hits"] < 0):
+            raise ContractError("结果总数必须为非负整数")
+        if "searched_at" in execution:
+            validate("spec", {**run["spec"], "base_date": execution["searched_at"]})
+            if not execution["searched_at"]:
+                raise ContractError("提供检索日期时必须为 YYYY-MM-DD")
+        if status == "zero" and execution.get("total_hits", 0) != 0:
+            raise ContractError("零命中不能登记非零结果总数")
         if not isinstance(page, int) or page < 1:
             raise ContractError("page 必须为正整数")
         if status in ("failed", "rate_limited", "timeout", "denied", "unsupported") and not note.strip():
@@ -374,7 +394,7 @@ class Workflow:
         blob = Path(path).read_bytes() if path else b""
         if len(blob) > 100 * 1024 * 1024:
             raise ContractError("单次导入文件不超过 100 MB，请分批导出")
-        batch_key = digest({"query": query, "page": page, "status": status, "hash": digest(blob), "note": note})
+        batch_key = digest({"query": query, "page": page, "status": status, "hash": digest(blob), "note": note, "execution": execution})
         if any(b["id"] == batch_key for b in run["batches"]):
             return self.view(rid)
         rows = read_export(Path(path)) if path and status not in ("failed", "rate_limited", "timeout", "denied", "unsupported") else []
@@ -382,6 +402,8 @@ class Workflow:
             raise ContractError("zero 只能用于确认零命中的查询，不能同时导入非空记录")
         if status == "complete" and not rows:
             raise ContractError("无记录时请明确登记 zero；空文件不代表查询完成")
+        if rows and execution.get("total_hits") == 0:
+            raise ContractError("非空导出不能登记结果总数为零")
         if path:
             suffix = Path(path).suffix.lower()
             relative = f"raw/{digest(blob)}{suffix}"
@@ -414,8 +436,10 @@ class Workflow:
         attempts = len([b for b in run["batches"] if b["query_id"] == query and b["page"] == page]) + 1
         batch = {"id": batch_key, "query_id": query, "page": page, "status": "truncated" if omitted else status,
                  "raw_file": relative, "raw_rows": len(rows), "new_unique": added, "omitted_rows": omitted,
-                 "note": note, "at": now(), "attempt": attempts}
+                 "note": note, "at": now(), "attempt": attempts, "execution": execution}
         run["batches"].append(batch)
+        q.update(execution)
+        q["imported_unique"] = sum(any(p.get("source", {}).get("query_id") == query for p in r.get("provenance", [])) for r in run["records"].values())
         # Latest observation per page; a complete last page is not enough if an earlier page failed or is absent.
         latest = {}
         for b in run["batches"]:
@@ -428,6 +452,10 @@ class Workflow:
             q["status"] = latest[final]["status"]
         else:
             q["status"] = batch["status"] if batch["status"] not in ("complete", "zero") else "pending"
+        if q["status"] == "complete" and q.get("total_hits") is not None and q["imported_unique"] < q["total_hits"]:
+            q["status"] = "truncated"
+            batch["status"] = "truncated"
+            batch["completeness_note"] = f"已导入 {q['imported_unique']} 篇，页面报告 {q['total_hits']} 篇，尚未完整导出"
         if omitted:
             run["force_partial"] = True
             run["termination_reason"] = f"达到候选上限 {run['config']['max_candidates']}，本批次 {omitted} 行未纳入"
@@ -664,17 +692,54 @@ class Workflow:
         self.store.save(run, "STOP_NEW_WORK", {"reason": reason})
         return self.view(rid)
 
-    def prompts(self, rid):
+    def replan(self, rid, reason, by):
         run = self.store.load(rid)
+        if run["spec"] is None or run["status"] in ("DONE", "STOPPED"):
+            raise ContractError("需已有规格且任务尚未交付，才能重编检索计划")
+        if not reason.strip() or not by.strip():
+            raise ContractError("重编计划必须记录修改来源和原因")
+        replaced = []
         for q in run["queries"]:
+            if q["status"] not in ("complete", "zero", "superseded"):
+                q.update(status="superseded", was_required=q["required"], required=False,
+                         superseded_at=now(), superseded_reason=reason)
+                replaced.append(q["qid"])
+        run["source_capabilities"] = read_json(APP / "search/config/source_capabilities.json")
+        old_versions = run["versions"]
+        run["versions"] = versions()
+        run["pending_plan"] = None
+        run["gates"].pop("export", None)
+        run.update(stage="PLAN", status="WAITING_AGENT")
+        self.store.save(run, "USER_REPLAN", {"by": by, "reason": reason, "superseded": replaced,
+                                            "previous_versions": old_versions})
+        return self.view(rid)
+
+    def queries(self, rid):
+        run = self.store.load(rid)
+        active = [q for q in run["queries"] if q["status"] != "superseded"]
+        if run["spec"] is None or not active:
+            raise ContractError("检索计划尚未生成，请先完成 SPEC 和 PLAN")
+        for q in active:
             self._ensure_egress(run, "sources", q["source"])
-        content = "# 智慧芽官网检索提示词\n\n"
-        for q in run["queries"]:
-            content += f"## {q['qid']}\n\n{q['prompt']}\n\n检索式：{q['query']}\n\n"
-        content += "每次结果须记录查询编号、页码、完成/零命中/截断/失败。导出字段：公开号、申请号、公开日、申请日、优先权日、标题、申请人、类型、法律状态、状态日期、IPC、摘要、同族标识。PDF 用完整公开号命名。\n"
-        path = self.store.artifact(run, "search_prompts.md", content)
-        self.store.save(run, "PROMPTS_PREPARED", {"path": str(path)})
+            if q.get("search_mode") != "expert" and q["status"] not in ("complete", "zero"):
+                raise ContractError("尚有旧版提示词查询，请先重编检索计划")
+        content = "# 智慧芽普通检索计划\n\n复制代码块内检索式到专家搜索；下面的说明供您操作时参考。\n\n"
+        content += "\n".join(f"{i}. {s}" for i, s in enumerate(collection_instructions(run), 1)) + "\n\n"
+        for q in active:
+            content += f"## {q['qid']}\n\n{q.get('purpose', '历史已执行查询')}\n\n```text\n{q['query']}\n```\n\n状态：{q['status']}；关联特征：{', '.join(q['fids']) or '按号查询'}。\n\n"
+        old_path = self.store.run_dir(rid) / "search_prompts.md"
+        if old_path.exists() and digest(old_path.read_bytes()) != run["artifact_hashes"].get("search_prompts.md"):
+            raise ContractError("旧检索文件已由用户修改，已停止覆盖或删除")
+        path = self.store.artifact(run, "search_queries.md", content)
+        if old_path.exists():
+            old_path.unlink()
+            run["artifact_hashes"].pop("search_prompts.md", None)
+        self.store.save(run, "QUERIES_PREPARED", {"path": str(path)})
         return {"path": str(path), "text": content}
+
+    def prompts(self, rid):
+        """Compatibility alias; the output now contains ordinary search queries."""
+        return self.queries(rid)
 
     def view(self, rid):
         run = self.store.load(rid)

@@ -7,7 +7,7 @@
 | 组件 | 必需输入 | 输出 | 不负责的事项 |
 | --- | --- | --- | --- |
 | `cnps-spec` | 用户需求、当前规格（修改时） | 入口、意图、基准日、特征、硬条件树、偏好、待确认项 | 不检索，不生成最终匹配结论 |
-| `cnps-plan` | 最新规格、查询历史、数据源能力、预算 | 逐查询提示词、特征绑定、必需标记 | 不执行网页查询，不修改规格 |
+| `cnps-plan` | 最新规格、查询历史、数据源能力、预算 | 逐查询具体检索式、目的、入口、特征绑定、必需标记 | 不执行网页查询，不修改规格 |
 | `retrieve` | 计划、用户导出文件、查询编号和执行状态 | 原始批次及来源记录 | 不猜命中数，不把失败当零命中 |
 | `normalize` | 原始批次 | 规范化公开文本记录、来源、关联和冲突 | A/B 文本只关联，不按同族或标题合并 |
 | `filter` | 规范记录、硬条件、检索意图 | PASS / FAIL / UNKNOWN、分支与原因 | 不理解技术语义，不用偏好剔除候选 |
@@ -48,7 +48,7 @@ Agent 把判断写入任务包指定的结果文件，统一采用以下外层�
 | 阶段 | Schema | `output` 要点 |
 | --- | --- | --- |
 | SPEC | `spec.schema.json` | `entry`、`intent`、`base_date`、`read_scope`、`keys`、`features`、`hard`、`soft`、`needs_human` |
-| PLAN | `query_plan.schema.json` | `queries` 中每条含 `qid/query/prompt/fids/required/source`；source 固定为 `patsnap_web` |
+| PLAN | `query_plan.schema.json` | `queries` 中每条含 `qid/query/purpose/search_mode/fids/required/source`；search_mode 固定为 `expert`，不接受旧 `prompt`；source 固定为 `patsnap_web` |
 | MATCH | `match.schema.json` | `items` 中每篇含 `key/document_sha256/features`；每特征含 `fid/state/quote/page/loc/scheme/read` |
 | GAP | `gap.schema.json` | `action/reason/queries/keys`；action 为 `stop`、`retrieve` 或 `evidence` |
 | REVIEW | `review.schema.json` | `model/context_id/items`；每条 `key/verdict/reason`，verdict 为 `confirm` 或 `revise` |
@@ -88,9 +88,9 @@ REVIEW 使用与被复核 MATCH 不同的实际上下文。程序检查标识不
 
 ## 4. 人工网页采集和 PDF 交接
 
-1. 用户复制计划中的智慧芽 Agent 提示词，在网页执行，保留实际检索式和导出日期。
+1. 用户在智慧芽普通“专家搜索”复制完整字段检索式并执行；高级搜索可选择同一文本字段、输入字段内关键词组合并设置同一受理局。`query` 只含确定检索式，`purpose` 为操作参考。默认 `TACD_ALL` 覆盖标题、摘要、权利要求、说明书及机器翻译数据，`AUTHORITY:(CN)` 指定中国公开文本。新颖性采集不额外限制公开日或当前法律状态，按已确认基准日在本地分支判断。
 2. 按查询分别提供 CSV、JSON 或 XLSX，并登记状态：`complete` 已完成、`zero` 成功且零命中、`truncated` 结果未全部导出、`failed` 查询失败。不要把状态写入虚构专利行。
-3. 使用 `python run.py import <run_id> <文件> --query Q1 --status complete` 导入。原始文件和源行用于追溯，合并只针对同一公开文本，不合并 A/B 版本或同族文本。
+3. 使用 `python run.py import <run_id> <文件> --query Q1 --status complete --actual-query <实际式> --total-hits <总数> --searched-at <YYYY-MM-DD>` 导入。CLI/接口的执行记录可选，未知值不填；界面要求普通检索的实际式及成功查询总数。执行记录为 `execution: {actual_query, total_hits, searched_at}`，不把其他字段放入其中。程序按该查询来源计算已导入的去重公开文本数；已登记总数大于已导入数时保留 truncated。同编号实际式变更被拒绝，须重编并生成新编号。原始文件和源行用于追溯，合并只针对同一公开文本，不合并 A/B 版本或同族文本。
 4. 把需要阅读的 PDF 放入 `data/runs/<run_id>/pdf_inbox/`，优先以含种类码的公开号命名，如 `CN123456789A.pdf`；文件名不能替代首页身份核对。运行 `python run.py ingest-pdfs <run_id>`。
 5. 程序提取每页文字并绑定公开号和 SHA-256。由 Codex 或用户实际核对公开号、版本、总页数和需要的正文部分后，使用 `python run.py confirm-pdf <run_id> --key <公开号> --by <实际核对者标识> --pages <总页数> --scope full` 登记完整性；只确认权利要求部分时用 `--scope claims`。这是材料核对记录，不是新增人工审批关口；不能仅因解析成功就确认完整，登记后重新获取任务包。
 6. 扫描件、乱码、缺页、A/B 错配保留待核实；首版不自动调用 OCR（把扫描图转成可检索文字）服务。程序不自行外发全文；当前 Codex 读取任务包及 PDF 按运行时授权执行。
@@ -115,6 +115,8 @@ REVIEW 使用与被复核 MATCH 不同的实际上下文。程序检查标识不
 
 完成分别记录 `coverage_complete`（必需查询完成且无未解决截断或失败）、`screening_complete`（每篇已归类）、`review_complete`（约定复核完成）。适用标志有一项为否即 PARTIAL，并交付已完成部分。全景与 lookup 跳过的阶段不得伪造技术判断；统计按该路径实际适用范围解释。
 
+查询结构由 `search/modules/queries.py` 检查字段、操作符、括号与引号；这只验证本地结构，不表示账号已执行或平台一定可用。未知字段、裸自然语言指令和不完整短语不能作为新查询提交。界面只复制检索式，操作说明和导出字段另行呈现。
+
 ## 6. 变更、验证与限制
 
 外部程序使用 `service.SearchService.search(request)`、`lookup(request)`，或对应 CLI 命令，两者返回同一 evidence 契约。用 `evidence(query_id)` 读取已有任务；未完成 Agent 判断返回 PARTIAL，等待人工采集返回 PENDING_IMPORT，调用方不得把它视作完整结果。`scope.workflow_state` 保留当前阶段和等待原因。
@@ -124,5 +126,7 @@ REVIEW 使用与被复核 MATCH 不同的实际上下文。程序检查标识不
 改动前读取用户最新稿；程序对其生成文件记录哈希，发现用户已改动时停止覆盖。新输出沿用本任务指定位置，不另建备份或重复稿。Skill 不编辑数据库、输入文件、规则、预算或其他阶段输出。
 
 修改既有规格时，先用 `python run.py show <run_id>` 取得数据库中最新 `spec`，只改用户指定字段，保留其他字段。把完整规格对象交给 `python run.py update-spec <run_id> <规格文件> --by <实际修改指示来源>`；该文件为纯 spec JSON，不带 Agent 提交外层。程序决定重算范围并复用原始导入，不伪造 SPEC 任务包或手改运行状态。
+
+检索方式变更使用 `python run.py replan <run_id> --reason <原因> --by <实际来源>`：规格、预算、原始导入和已执行查询保留；未完成查询标记 superseded 并取消必需标记，历史不删除；新查询使用新编号。未执行新计划时仍为等待导入。`queries` 导出 `search_queries.md`；`prompts` 为兼容命令。仅当旧生成文件 `search_prompts.md` 未被用户修改时，由程序替换为新的检索文件；用户改动会阻止覆盖。
 
 Skill 版本登记在各 `SKILL.md` 的 `metadata.version`。本次验证包括格式、接口、规则和固定样例；测试使用虚构但符合真实材料形态的输入。没有智慧芽真实导出与用户专利 PDF 时，不声称完成真实数据验收、模型行为验收或达到匹配精确率目标。按用户要求，不运行正式开发前的否决性实验、无 Skill 基线实验或冒烟测试。

@@ -2,7 +2,7 @@
 name: cnps-gap
 description: 根据查询执行状态、候选证据和剩余预算，提出专利检索补检、补取全文或停止的单步决定。收到本项目 GAP 阶段任务包时使用；不修改用户条件、不执行检索或取证，也不用于全景和侵权风险路径的语义判断。
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   cnps-stage: "GAP"
   cnps-rules: "D4-search-1"
 ---
@@ -24,6 +24,7 @@ metadata:
 | 条件 | 阅读内容 |
 | --- | --- |
 | 选择补检、补证或停止，解释完成标志时 | [references/rules.md](references/rules.md)：L0、L1 与停止条件 |
+| 需要写补检关键词及字段检索式时 | [../cnps-plan/references/rules.md](../cnps-plan/references/rules.md)：普通检索字段、词组与布尔语法 |
 | 核对 `action`、追加查询与材料交接时 | [../../../docs/contracts.md](../../../docs/contracts.md)：共用接口 |
 | 写入 `output` 前 | [../../../shared/schemas/gap.schema.json](../../../shared/schemas/gap.schema.json)：决策字段定义 |
 
@@ -31,7 +32,7 @@ metadata:
 
 1. 对照必需查询逐条检查成功、零命中、截断、失败和未执行状态；零命中是结果，不等于失败。已有候选缺全文属于材料缺口，不应重新宽泛检索同一主题。
 2. 按特征定位尚无有效查询覆盖的部分，以及引文缺页、错版本或来源冲突造成的 UNKNOWN。不能把“未找到”统一改成“材料不可得”。
-3. 选择一个 `action`：`retrieve` 追加针对缺口的查询；`evidence` 请求指定 `keys` 的材料；`stop` 说明停止原因。查询中的 `fids` 只能引用既有特征；不得删除或收紧旧查询掩盖未完成覆盖。
+3. 选择一个 `action`：`retrieve` 追加针对缺口的查询；`evidence` 请求指定 `keys` 的材料；`stop` 说明停止原因。补检查询使用完整字段检索式 `query`、简短 `purpose` 和 `search_mode: "expert"`，不返回智慧芽 Agent 提示词；具体语法与 PLAN 使用同一数据契约。查询中的 `fids` 只能引用既有特征；不得删除或收紧旧查询掩盖未完成覆盖。
 4. 先检查预算。补检与补证合计不得超过任务包设定轮数（设计默认 3），查询数和候选数也不得超限。必须为复核留足配置的预留预算；到点或已无可用预算时停止新增工作，保留当前待核实与未完成范围。
 5. 对人工补取，明确所需公开号及种类码、缺失字段或页段；由程序写入导入待办并挂起，等待时间不计入工作时限。不能假称 PDF 已取得或查询已执行。
 6. L4 交接：按 Schema 写出建议，执行 `python run.py submit <run_id> GAP <结果文件>`。校验失败修正本阶段字段，不改预算；由程序决定回 PLAN、回 MATCH 或进 REVIEW。本 Skill 不直接调用这些 Skill。
@@ -49,7 +50,7 @@ metadata:
 
 结果文件使用统一封装：`{"task_token":"原样复制当前任务包值","model":"codex","context_id":"实际上下文标识","elapsed_seconds":0,"output":{...}}`；本阶段内容只放入 `output`。
 
-`output` 包含 `action`（`stop` / `retrieve` / `evidence`）、`reason`、`queries`、`keys`。停止时两数组为空；补检时 `queries` 为符合 Schema 的新查询、`keys` 为空；补证时 `keys` 为已有候选的准确公开号键、`queries` 为空。`reason` 必须说明具体缺口或停止依据，不能只写“已充分检索”。
+`output` 包含 `action`（`stop` / `retrieve` / `evidence`）、`reason`、`queries`、`keys`。停止时两数组为空；补检时 `queries` 为符合 Schema 的新普通检索查询（含 `query/purpose/search_mode`）、`keys` 为空；补证时 `keys` 为已有候选的准确公开号键、`queries` 为空。`reason` 必须说明具体缺口或停止依据，不能只写“已充分检索”。
 
 模型服务标识沿用当前任务包批准的 `model`（首版为 `codex`）；`elapsed_seconds` 填实际 Agent 工作秒数，不包括等待用户的时间，示例中的 0 不能替代计时。`context_id` 必须真实对应本次执行上下文。
 

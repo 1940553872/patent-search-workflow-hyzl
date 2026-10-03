@@ -90,7 +90,7 @@ def serve(workflow, port=8765, open_browser=False):
                 with lock:
                     if action == "create":
                         result = workflow.create(data["request"])
-                    elif action in ("packet", "advance", "ingest_pdfs", "export", "prompts"):
+                    elif action in ("packet", "advance", "ingest_pdfs", "export", "queries", "prompts"):
                         result = getattr(workflow, action)(rid)
                     elif action == "submit":
                         result = workflow.submit(rid, data["stage"], data["envelope"])
@@ -104,10 +104,12 @@ def serve(workflow, port=8765, open_browser=False):
                         result = workflow.stop(rid, data["reason"])
                     elif action == "update_spec":
                         result = workflow.update_spec(rid, data["spec"], data["by"])
+                    elif action == "replan":
+                        result = workflow.replan(rid, data["reason"], data["by"])
                     elif action == "authorize":
                         result = workflow.authorize(rid, data.get("sources", []), data.get("models", []))
                     elif action == "import":
-                        result = workflow.import_file(rid, data.get("path") or None, data["query"], data.get("status", "complete"), int(data.get("page", 1)), data.get("note", ""))
+                        result = workflow.import_file(rid, data.get("path") or None, data["query"], data.get("status", "complete"), int(data.get("page", 1)), data.get("note", ""), data.get("execution"))
                     elif action == "upload":
                         name = Path(data["name"]).name
                         if name != data["name"] or name in (".", ".."):
@@ -127,7 +129,7 @@ def serve(workflow, port=8765, open_browser=False):
                             path = directory / ("upload-" + uuid.uuid4().hex + suffix)
                             try:
                                 path.write_bytes(blob)
-                                result = workflow.import_file(rid, path, data["query"], data.get("status", "complete"), int(data.get("page", 1)), data.get("note", ""))
+                                result = workflow.import_file(rid, path, data["query"], data.get("status", "complete"), int(data.get("page", 1)), data.get("note", ""), data.get("execution"))
                             finally:
                                 path.unlink(missing_ok=True)
                         else:
