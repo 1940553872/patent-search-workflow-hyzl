@@ -1,0 +1,90 @@
+{
+  "type": "object",
+  "properties": {
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "qid": {
+            "type": "string",
+            "pattern": "^Q[A-Za-z0-9_-]+$"
+          },
+          "query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^F[1-9][0-9]*$"
+            },
+            "uniqueItems": true
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "patsnap_web"
+            ]
+          },
+          "classifications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "official_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "verified_url": {
+                  "type": "string",
+                  "pattern": "^https://"
+                }
+              },
+              "required": [
+                "code",
+                "official_name",
+                "verified_url"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "qid",
+          "query",
+          "prompt",
+          "fids",
+          "required",
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 12
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "queries"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "query_plan"
+}

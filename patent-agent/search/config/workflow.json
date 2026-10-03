@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "max_rounds": 3,
+  "max_queries_per_round": 12,
+  "max_candidates": 2000,
+  "request_timeout": 30,
+  "max_attempts": 3,
+  "per_source_concurrency": 1,
+  "match_batch_size": 10,
+  "correction_rounds": 2,
+  "review_sample": 0.1,
+  "review_reserve": 0.2,
+  "run_deadline_min": 30,
+  "egress_sources": ["patsnap_web"],
+  "egress_models": ["codex"],
+  "legal_status_max_age_days": 0
+}

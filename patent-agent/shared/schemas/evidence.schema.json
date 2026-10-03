@@ -1,0 +1,128 @@
+{
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "object"
+    },
+    "query_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "snapshot": {
+      "type": "string",
+      "format": "date"
+    },
+    "docs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "dates",
+          "legal",
+          "class",
+          "branch",
+          "claims",
+          "evidence"
+        ]
+      }
+    },
+    "funnel": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "enum": [
+              "召回",
+              "去重",
+              "硬条件",
+              "取证",
+              "复核"
+            ]
+          },
+          "in": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "out": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reasons": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "stage",
+          "in",
+          "out",
+          "reasons"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "scope": {
+      "type": "object"
+    },
+    "import_todo": {
+      "type": "array",
+      "items": {}
+    },
+    "status": {
+      "enum": [
+        "COMPLETE",
+        "PARTIAL",
+        "PENDING_IMPORT"
+      ]
+    },
+    "needs_human": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "coverage_complete": {
+      "type": "boolean"
+    },
+    "screening_complete": {
+      "type": "boolean"
+    },
+    "review_complete": {
+      "type": "boolean"
+    },
+    "counts": {
+      "type": "object"
+    },
+    "versions": {
+      "type": "object"
+    },
+    "termination_reason": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "request",
+    "query_id",
+    "snapshot",
+    "docs",
+    "funnel",
+    "scope",
+    "import_todo",
+    "status",
+    "needs_human",
+    "coverage_complete",
+    "screening_complete",
+    "review_complete",
+    "counts",
+    "versions",
+    "termination_reason",
+    "metrics"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "evidence"
+}

@@ -1,0 +1,198 @@
+{
+  "type": "object",
+  "properties": {
+    "entry": {
+      "enum": [
+        "search",
+        "lookup"
+      ]
+    },
+    "intent": {
+      "enum": [
+        "新颖性",
+        "全景",
+        "侵权风险",
+        null
+      ]
+    },
+    "base_date": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "read_scope": {
+      "enum": [
+        "full",
+        "claims",
+        "biblio"
+      ]
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fid": {
+            "type": "string",
+            "pattern": "^F[1-9][0-9]*$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "fid",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "hard": {
+      "$ref": "#/$defs/tree"
+    },
+    "soft": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/tree"
+          }
+        ]
+      }
+    },
+    "needs_human": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "entry",
+    "intent",
+    "base_date",
+    "read_scope",
+    "keys",
+    "features",
+    "hard",
+    "soft",
+    "needs_human"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "tree": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "enum": [
+                "AND",
+                "OR",
+                "NOT"
+              ]
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/tree"
+              }
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "feature": {
+              "type": "string",
+              "pattern": "^F[1-9][0-9]*$"
+            }
+          },
+          "required": [
+            "feature"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "field": {
+              "enum": [
+                "dates.app",
+                "dates.pri",
+                "dates.pub",
+                "authority",
+                "kind",
+                "applicants",
+                "ipc",
+                "title",
+                "legal.state",
+                "legal.expiry",
+                "legal.as_of",
+                "application_number",
+                "family_id"
+              ]
+            },
+            "cmp": {
+              "enum": [
+                "eq",
+                "ne",
+                "lt",
+                "lte",
+                "gt",
+                "gte",
+                "in",
+                "contains"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "field",
+            "cmp",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec"
+}

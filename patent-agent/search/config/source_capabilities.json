@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "sources": {
+    "patsnap_web": {
+      "transport": "manual_import",
+      "authentication": "用户已有智慧芽账号，仅在官网登录",
+      "agent_prompt": true,
+      "api": false,
+      "automated_browser": false,
+      "formats": ["csv", "xlsx", "json"],
+      "fulltext": "用户下载 PDF 至任务 pdf_inbox",
+      "pagination": "每次导入登记 query_id、page 和完成状态",
+      "limits": "以用户账号官网显示为准；程序不发出请求",
+      "ipc_cpc": "分类号需人工或 Agent 核对官方名称后启用",
+      "coverage": "以实际导出的数据范围为准",
+      "update_delay": "未知",
+      "fees": "以用户已有账号授权为准"
+    }
+  }
+}

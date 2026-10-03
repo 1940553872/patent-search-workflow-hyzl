@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "required": [
+    "key",
+    "dates",
+    "legal",
+    "provenance",
+    "conflicts"
+  ],
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dates": {
+      "type": "object"
+    },
+    "legal": {
+      "type": "object"
+    },
+    "provenance": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "conflicts": {
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "patent"
+}

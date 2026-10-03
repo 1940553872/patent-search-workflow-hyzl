@@ -1,0 +1,93 @@
+{
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "document_sha256": {
+            "type": "string"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fid": {
+                  "type": "string",
+                  "pattern": "^F[1-9][0-9]*$"
+                },
+                "state": {
+                  "enum": [
+                    "有支持",
+                    "明确相反",
+                    "部分支持",
+                    "未找到",
+                    "材料不可得",
+                    "来源冲突"
+                  ]
+                },
+                "quote": {
+                  "type": "string"
+                },
+                "page": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "loc": {
+                  "type": "string"
+                },
+                "scheme": {
+                  "type": "string"
+                },
+                "read": {
+                  "enum": [
+                    "全文",
+                    "权利要求",
+                    "摘要"
+                  ]
+                }
+              },
+              "required": [
+                "fid",
+                "state",
+                "quote",
+                "page",
+                "loc",
+                "scheme",
+                "read"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "model": {
+            "type": "string"
+          },
+          "context_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "document_sha256",
+          "features"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "match"
+}
